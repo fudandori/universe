@@ -35,69 +35,83 @@ function init() {
     document.getElementsByTagName('body')[0].removeChild(document.getElementById('main'));
 
     const mobile = isMobile();
-    const koef = mobile ? 0.5 : 1;
+    const screenCoefficient = mobile ? 0.5 : 1;
     const canvas = document.getElementById('heart');
     const ctx = canvas.getContext('2d');
     const rand = Math.random;
 
-    let width = canvas.width = koef * innerWidth;
-    let height = canvas.height = koef * innerHeight;
+    let width = canvas.width = screenCoefficient * innerWidth;
+    let height = canvas.height = screenCoefficient * innerHeight;
 
-    ctx.fillStyle = "rgba(0,0,0,1)";
+    const black = 'rgba(0,0,0,1)';
+
+    ctx.fillStyle = black;
     ctx.fillRect(0, 0, width, height);
 
-
-    window.addEventListener('resize', () => {
-        width = canvas.width = koef * innerWidth;
-        height = canvas.height = koef * innerHeight;
-        ctx.fillStyle = "rgba(0,0,0,1)";
+    const fillBackground =  () => {
+        width = canvas.width = screenCoefficient * innerWidth;
+        height = canvas.height = screenCoefficient * innerHeight;
+        ctx.fillStyle = black;
         ctx.fillRect(0, 0, width, height);
-    });
+    }
 
-    const originPoints = [];
-    var i;
+    window.addEventListener('resize', fillBackground);
 
     const [tau, delta, layer1, layer2, layer3] = [Math.PI * 2, mobile ? 0.3 : 0.1, [210, 13], [150, 9], [90, 5]];
-
-
+    
+    //AUX
     const getPos = (rad) => [Math.pow(Math.sin(rad), 3), -(15 * Math.cos(rad) - 5 * Math.cos(2 * rad) - 2 * Math.cos(3 * rad) - Math.cos(4 * rad))];
-
     const scale = (pos, scaleX, scaleY) => [pos[0] * scaleX, pos[1] * scaleY];
-
-    const addPoint = (rad, layer) => {
+    
+    
+    const addPoint = (rad, layer, list) => {
         const heartPos = getPos(rad);
         const point = scale(heartPos, layer[0], layer[1]);
-        originPoints.push(point);
+        list.push(point);
     };
 
-    for (let rad = 0; rad < tau; rad += delta) addPoint(rad, layer1);
-    for (let rad = 0; rad < tau; rad += delta) addPoint(rad, layer2);
-    for (let rad = 0; rad < tau; rad += delta) addPoint(rad, layer3);
+    const buildPoints = () => {
+        const list = [];
+        for (let rad = 0; rad < tau; rad += delta) addPoint(rad, layer1, list);
+        for (let rad = 0; rad < tau; rad += delta) addPoint(rad, layer2, list);
+        for (let rad = 0; rad < tau; rad += delta) addPoint(rad, layer3, list);
+        return list;
+    }
+    
+    const originPoints = buildPoints();
 
     const heartPointsCount = originPoints.length;
     const traceCount = mobile ? 20 : 50;
 
-    const randomizeCoords = quantity => Array(quantity).fill(0).map(() => { return { x: Math.random() * width, y: Math.random() * height }; });
+    //AUX
+    const fillTrace = (quantity, x, y) => Array(quantity).fill(0).map(() => { return { x: x, y: y }; });
     const randomizeHsla = () => "hsla(0," + Math.trunc(40 * rand() + 60) + "%," + Math.trunc(60 * rand() + 20) + "%,.3)";
-    const e = originPoints.map((i, n) => {
+    const createProperties = (init, n) => {
+        const x = rand() * width;
+        const y = rand() * height;
         return {
-            vx: 0,
-            vy: 0,
+            vx: init,
+            vy: init,
             R: 2,
             speed: rand() + 5,
             q: Math.trunc(rand() * heartPointsCount),
             D: 2 * (n % 2) - 1,
             force: 0.2 * rand() + 0.7,
             f: randomizeHsla(),
-            trace: randomizeCoords(traceCount)
-        }
-    });
+            trace: fillTrace(traceCount, x, y)
+        };
+    };
+
+    const universe = Array(heartPointsCount)
+        .fill(0)
+        .map((o, n) => createProperties(o, n))
+        .reverse();
 
     const [traceK, timeDelta] = [0.4, 0.01];
 
     let time = 0;
 
-    var loop = () => {
+    const loop = () => {
         const n = -Math.cos(time);
         const [increment, timeCoeff] = [(1 + n) * .5, Math.sin(time) < 0 ? 9 : (n > 0.8) ? .2 : 1];
 
@@ -107,8 +121,9 @@ function init() {
 
         ctx.fillStyle = "rgba(0,0,0,.1)";
         ctx.fillRect(0, 0, width, height);
-        for (i = e.length; i--;) {
-            var u = e[i];
+
+        for (let i = universe.length; i--;) {
+            var u = universe[i];
             var q = targetPoints[u.q];
             var dx = u.trace[0].x - q[0];
             var dy = u.trace[0].y - q[1];
