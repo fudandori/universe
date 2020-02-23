@@ -38,30 +38,26 @@ function init() {
     const koef = mobile ? 0.5 : 1;
     const canvas = document.getElementById('heart');
     const ctx = canvas.getContext('2d');
+    const rand = Math.random;
+
     let width = canvas.width = koef * innerWidth;
     let height = canvas.height = koef * innerHeight;
-    var rand = Math.random;
+
     ctx.fillStyle = "rgba(0,0,0,1)";
     ctx.fillRect(0, 0, width, height);
 
 
-    window.addEventListener('resize', function() {
+    window.addEventListener('resize', () => {
         width = canvas.width = koef * innerWidth;
         height = canvas.height = koef * innerHeight;
         ctx.fillStyle = "rgba(0,0,0,1)";
         ctx.fillRect(0, 0, width, height);
     });
 
-    var originPoints = [];
+    const originPoints = [];
     var i;
 
-    const TAU = Math.PI * 2;
-    const delta = mobile ? 0.3 : 0.1;
-    const [layer1, layer2, layer3] = [
-        [210, 13],
-        [150, 9],
-        [90, 5]
-    ];
+    const [tau, delta, layer1, layer2, layer3] = [Math.PI * 2, mobile ? 0.3 : 0.1, [210, 13], [150, 9], [90, 5]];
 
 
     const getPos = (rad) => [Math.pow(Math.sin(rad), 3), -(15 * Math.cos(rad) - 5 * Math.cos(2 * rad) - 2 * Math.cos(3 * rad) - Math.cos(4 * rad))];
@@ -72,47 +68,43 @@ function init() {
         const heartPos = getPos(rad);
         const point = scale(heartPos, layer[0], layer[1]);
         originPoints.push(point);
-    }
+    };
 
-    for (let rad = 0; rad < TAU; rad += delta) addPoint(rad, layer1);
-    for (let rad = 0; rad < TAU; rad += delta) addPoint(rad, layer2);
-    for (let rad = 0; rad < TAU; rad += delta) addPoint(rad, layer3);
+    for (let rad = 0; rad < tau; rad += delta) addPoint(rad, layer1);
+    for (let rad = 0; rad < tau; rad += delta) addPoint(rad, layer2);
+    for (let rad = 0; rad < tau; rad += delta) addPoint(rad, layer3);
 
     const heartPointsCount = originPoints.length;
     const traceCount = mobile ? 20 : 50;
 
-    var e = [];
-
-    for (i = 0; i < heartPointsCount; i++) {
-        var x = rand() * width;
-        var y = rand() * height;
-        e[i] = {
+    const randomizeCoords = quantity => Array(quantity).fill(0).map(() => { return { x: Math.random() * width, y: Math.random() * height }; });
+    const randomizeHsla = () => "hsla(0," + Math.trunc(40 * rand() + 60) + "%," + Math.trunc(60 * rand() + 20) + "%,.3)";
+    const e = originPoints.map((i, n) => {
+        return {
             vx: 0,
             vy: 0,
             R: 2,
             speed: rand() + 5,
             q: Math.trunc(rand() * heartPointsCount),
-            D: 2 * (i % 2) - 1,
+            D: 2 * (n % 2) - 1,
             force: 0.2 * rand() + 0.7,
-            f: "hsla(0," + Math.trunc(40 * rand() + 60) + "%," + Math.trunc(60 * rand() + 20) + "%,.3)",
-            trace: []
-        };
-        for (var k = 0; k < traceCount; k++) e[i].trace[k] = { x: x, y: y };
-    }
+            f: randomizeHsla(),
+            trace: randomizeCoords(traceCount)
+        }
+    });
 
-    var config = {
-        traceK: 0.4,
-        timeDelta: 0.01
-    };
+    const [traceK, timeDelta] = [0.4, 0.01];
 
-    var time = 0;
+    let time = 0;
+
     var loop = () => {
         const n = -Math.cos(time);
-        const increment = (1 + n) * .5;
+        const [increment, timeCoeff] = [(1 + n) * .5, Math.sin(time) < 0 ? 9 : (n > 0.8) ? .2 : 1];
 
         const targetPoints = originPoints.map(p => [increment * p[0] + width / 2, increment * p[1] + height / 2]);
 
-        time += ((Math.sin(time)) < 0 ? 9 : (n > 0.8) ? .2 : 1) * config.timeDelta;
+        time += timeCoeff * timeDelta;
+
         ctx.fillStyle = "rgba(0,0,0,.1)";
         ctx.fillRect(0, 0, width, height);
         for (i = e.length; i--;) {
@@ -144,8 +136,8 @@ function init() {
             for (k = 0; k < u.trace.length - 1;) {
                 var T = u.trace[k];
                 var N = u.trace[++k];
-                N.x -= config.traceK * (N.x - T.x);
-                N.y -= config.traceK * (N.y - T.y);
+                N.x -= traceK * (N.x - T.x);
+                N.y -= traceK * (N.y - T.y);
             }
             ctx.fillStyle = u.f;
             for (k = 0; k < u.trace.length; k++) {
