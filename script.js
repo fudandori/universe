@@ -44,8 +44,6 @@ function init() {
     ctx.fillStyle = "rgba(0,0,0,1)";
     ctx.fillRect(0, 0, width, height);
 
-    const heartPosition = (rad) => [Math.pow(Math.sin(rad), 3), -(15 * Math.cos(rad) - 5 * Math.cos(2 * rad) - 2 * Math.cos(3 * rad) - Math.cos(4 * rad))];
-    const scale = (pos, scaleX, scaleY) => [pos[0] * scaleX, pos[1] * scaleY];
 
     window.addEventListener('resize', function() {
         width = canvas.width = koef * innerWidth;
@@ -54,28 +52,37 @@ function init() {
         ctx.fillRect(0, 0, width, height);
     });
 
-    var pointsOrigin = [];
+    var originPoints = [];
     var i;
 
-    const dr = mobile ? 0.3 : 0.1;
     const TAU = Math.PI * 2;
+    const delta = mobile ? 0.3 : 0.1;
+    const [layer1, layer2, layer3] = [
+        [210, 13],
+        [150, 9],
+        [90, 5]
+    ];
 
-    for (i = 0; i < TAU; i += dr) pointsOrigin.push(scale(heartPosition(i), 210, 13));
-    for (i = 0; i < TAU; i += dr) pointsOrigin.push(scale(heartPosition(i), 150, 9));
-    for (i = 0; i < TAU; i += dr) pointsOrigin.push(scale(heartPosition(i), 90, 5));
-    var heartPointsCount = pointsOrigin.length;
 
-    var targetPoints = [];
-    var pulse = function(kx, ky) {
-        for (i = 0; i < pointsOrigin.length; i++) {
-            targetPoints[i] = [];
-            targetPoints[i][0] = kx * pointsOrigin[i][0] + width / 2;
-            targetPoints[i][1] = ky * pointsOrigin[i][1] + height / 2;
-        }
-    };
+    const getPos = (rad) => [Math.pow(Math.sin(rad), 3), -(15 * Math.cos(rad) - 5 * Math.cos(2 * rad) - 2 * Math.cos(3 * rad) - Math.cos(4 * rad))];
+
+    const scale = (pos, scaleX, scaleY) => [pos[0] * scaleX, pos[1] * scaleY];
+
+    const addPoint = (rad, layer) => {
+        const heartPos = getPos(rad);
+        const point = scale(heartPos, layer[0], layer[1]);
+        originPoints.push(point);
+    }
+
+    for (let rad = 0; rad < TAU; rad += delta) addPoint(rad, layer1);
+    for (let rad = 0; rad < TAU; rad += delta) addPoint(rad, layer2);
+    for (let rad = 0; rad < TAU; rad += delta) addPoint(rad, layer3);
+
+    const heartPointsCount = originPoints.length;
+    const traceCount = mobile ? 20 : 50;
 
     var e = [];
-    const traceCount = mobile ? 20 : 50;
+
     for (i = 0; i < heartPointsCount; i++) {
         var x = rand() * width;
         var y = rand() * height;
@@ -84,10 +91,10 @@ function init() {
             vy: 0,
             R: 2,
             speed: rand() + 5,
-            q: ~~(rand() * heartPointsCount),
+            q: Math.trunc(rand() * heartPointsCount),
             D: 2 * (i % 2) - 1,
             force: 0.2 * rand() + 0.7,
-            f: "hsla(0," + ~~(40 * rand() + 60) + "%," + ~~(60 * rand() + 20) + "%,.3)",
+            f: "hsla(0," + Math.trunc(40 * rand() + 60) + "%," + Math.trunc(60 * rand() + 20) + "%,.3)",
             trace: []
         };
         for (var k = 0; k < traceCount; k++) e[i].trace[k] = { x: x, y: y };
@@ -99,9 +106,12 @@ function init() {
     };
 
     var time = 0;
-    var loop = function() {
-        var n = -Math.cos(time);
-        pulse((1 + n) * .5, (1 + n) * .5);
+    var loop = () => {
+        const n = -Math.cos(time);
+        const increment = (1 + n) * .5;
+
+        const targetPoints = originPoints.map(p => [increment * p[0] + width / 2, increment * p[1] + height / 2]);
+
         time += ((Math.sin(time)) < 0 ? 9 : (n > 0.8) ? .2 : 1) * config.timeDelta;
         ctx.fillStyle = "rgba(0,0,0,.1)";
         ctx.fillRect(0, 0, width, height);
@@ -113,7 +123,7 @@ function init() {
             var length = Math.sqrt(dx * dx + dy * dy);
             if (10 > length) {
                 if (0.95 < rand()) {
-                    u.q = ~~(rand() * heartPointsCount);
+                    u.q = Math.trunc(rand() * heartPointsCount);
                 } else {
                     if (0.99 < rand()) {
                         u.D *= -1;
